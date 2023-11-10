@@ -1,0 +1,149 @@
+definitions:
+  http_util.HTTPError:
+    properties:
+      code:
+        example: 500
+        type: integer
+      message:
+        example: something went wrong
+        type: string
+      status:
+        example: fail
+        type: string
+    type: object
+  http_util.HTTPSuccess:
+    properties:
+      message:
+        example: success message if any
+        type: string
+      status:
+        example: success
+        type: string
+    type: object
+  text_menu.TextMenu:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/v1/text_menu:
+    get:
+      consumes:
+      - application/json
+      description: get text menu items
+      parameters:
+      - collectionFormat: csv
+        description: //1 = WEB, 2 = APP, 3 = BOTH
+        in: query
+        items:
+          type: integer
+        name: item_types
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/text_menu.TextMenu'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http_util.HTTPError'
+      summary: Get Text Menu
+      tags:
+      - Text Menu Demo
+    post:
+      consumes:
+      - application/json
+      description: create text menu <br> TODO - please implement the logic for this
+        endpoint
+      parameters:
+      - description: text menu json item
+        in: body
+        name: menu
+        required: true
+        schema:
+          $ref: '#/definitions/text_menu.TextMenu'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http_util.HTTPSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http_util.HTTPError'
+      summary: Create Text Menu
+      tags:
+      - Text Menu Demo
+  /api/v1/text_menu/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: delete text menu <br> TODO - please implement the logic for this
+        endpoint
+      parameters:
+      - description: item id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http_util.HTTPSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http_util.HTTPError'
+      summary: Delete Text Menu
+      tags:
+      - Text Menu Demo
+    put:
+      consumes:
+      - application/json
+      description: update text menu <br> TODO - please implement the logic for this
+        endpoint
+      parameters:
+      - description: item id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: text menu json item
+        in: body
+        name: menu
+        required: true
+        schema:
+          $ref: '#/definitions/text_menu.TextMenu'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/http_util.HTTPSuccess'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/http_util.HTTPError'
+      summary: Update Text Menu
+      tags:
+      - Text Menu Demo
+swagger: "2.0"
