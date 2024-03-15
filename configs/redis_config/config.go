@@ -8,7 +8,7 @@ import (
 
 type Config struct {
 	Host               string
-	Database           string
+	Database           int
 	Username           string
 	Password           string
 	CacheRetryLockTime time.Duration
@@ -16,6 +16,8 @@ type Config struct {
 }
 
 func NewConfig() (Config, error) {
+	dbNum, _ := strconv.Atoi(os.Getenv("REDIS_DATABASE")) //default 0
+
 	cacheRetryLockSec := time.Duration(60) * time.Second //default 60 seconds
 	v, isExist := os.LookupEnv("CACHE_RETRY_LOCK_SEC")
 	if isExist {
@@ -36,7 +38,7 @@ func NewConfig() (Config, error) {
 
 	return Config{
 		Host:               os.Getenv("REDIS_HOST"),
-		Database:           os.Getenv("REDIS_DATABASE"),
+		Database:           dbNum,
 		Username:           os.Getenv("REDIS_USERNAME"),
 		Password:           os.Getenv("REDIS_PASSWORD"),
 		CacheRetryLockTime: cacheRetryLockSec,

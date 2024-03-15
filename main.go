@@ -19,7 +19,7 @@ func main() {
 
 	cs, err := InitApiControllers()
 	if err != nil {
-		log_util.Logger.Fatal("Error when initializing api controllers:" + err.Error())
+		log_util.Logger.Fatal("Error when initializing api controllers::" + err.Error())
 	}
 
 	r := gin.Default()

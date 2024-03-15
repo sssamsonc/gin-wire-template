@@ -19,9 +19,9 @@ import (
 // TODO - Example for getting data from MongoDB with Redis cache
 func (repo *Repository) GetMenu(ctx context.Context, itemTypes []int) ([]text_menu.TextMenu, error) {
 	var results []text_menu.TextMenu
-	rdb, rdbErr := repo.redisConnector.GetDb(ctx)
+	rdb, _ := repo.redisConnector.GetClient(ctx)
 
-	if rdbErr == nil {
+	if rdb != nil {
 		data, _ := rdb.Get(ctx, TEXT_MENU_CACHE_NAME).Bytes()
 		if err := json.Unmarshal(data, &results); err == nil {
 			log_util.Logger.Debug("Used Cache! " + TEXT_MENU_CACHE_NAME)
@@ -57,7 +57,7 @@ func (repo *Repository) GetMenu(ctx context.Context, itemTypes []int) ([]text_me
 		return nil, err
 	}
 
-	if rdbErr == nil && len(results) > 0 {
+	if rdb != nil && len(results) > 0 {
 		if res, err := json.Marshal(results); err == nil {
 			//set cache
 			exist, _ := rdb.Exists(ctx, TEXT_MENU_CACHE_NAME).Result()
@@ -79,7 +79,7 @@ func (repo *Repository) GetMenuFromMySQL(ctx context.Context, itemTypes []int) (
 		rows    *sql.Rows
 	)
 
-	db, err := repo.mysqlConnector.GetDb(ctx)
+	db, err := repo.mysqlConnector.GetClient(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -50,10 +50,7 @@ func InitApiControllers() (*controllers.Controllers, error) {
 	if err != nil {
 		return nil, err
 	}
-	redis_cacheConnector, err := redis_cache.NewConnector(redis_configConfig, config)
-	if err != nil {
-		return nil, err
-	}
+	redis_cacheConnector := redis_cache.NewConnector(redis_configConfig, config)
 	repository := text_menu_repository.NewRepository(config, connector, mysql_databaseConnector, redis_configConfig, redis_cacheConnector)
 	controller := text_menu_controller.NewController(repository)
 	controllersControllers := controllers.NewControllers(controller)

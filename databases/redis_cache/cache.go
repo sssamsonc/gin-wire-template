@@ -9,101 +9,87 @@ import (
 	"gin-wire-template/utils/log_util"
 	"gin-wire-template/utils/once_util"
 	"github.com/redis/go-redis/v9"
-	"strconv"
 	"time"
 )
 
-var connector *Connector
+var (
+	connector *Connector
+	once      once_util.Once
+)
 
 type Connector struct {
-	client          *redis.Client
-	error           error
-	once            once_util.Once
-	dbConfig        redis_config.Config
-	commonConfig    common_config.Config
-	isEnabled       bool
-	isLockedToRetry bool
-	failedAt        time.Time
+	client       *redis.Client
+	dbConfig     redis_config.Config
+	commonConfig common_config.Config
+	isEnabled    bool
+	isLocked     bool
+	failedAt     time.Time
 }
 
-func NewConnector(dbConfig redis_config.Config, commonConfig common_config.Config) (*Connector, error) {
-	if connector == nil {
+func NewConnector(dbConfig redis_config.Config, commonConfig common_config.Config) *Connector {
+	once.Do(func() {
 		connector = &Connector{
 			dbConfig:     dbConfig,
 			commonConfig: commonConfig,
-		}
-	}
-
-	//init client
-	_, err := connector.verifyAndGetClient(context.Background())
-	return connector, err
-}
-
-func (c *Connector) verifyAndGetClient(ctx context.Context) (*redis.Client, error) {
-	c.once.Do(func() {
-		c.error = nil
-
-		c.isEnabled = c.dbConfig.Host != ""
-
-		if !c.isEnabled {
-			return
+			isEnabled:    dbConfig.Host != "",
 		}
 
-		if c.isLockedToRetry {
-			return
-		}
-
-		dbNum, _ := strconv.Atoi(c.dbConfig.Database)
-
-		opts := &redis.Options{
-			Addr:     c.dbConfig.Host,
-			Username: c.dbConfig.Username,
-			Password: c.dbConfig.Password,
-			DB:       dbNum,
-		}
-
-		c.client = redis.NewClient(opts)
+		connector.initializeClient()
 	})
 
+	return connector
+}
+
+func (c *Connector) initializeClient() {
 	if !c.isEnabled {
-		log_util.Logger.Debug("redis cache is disabled")
-		return nil, nil
+		log_util.Logger.Debug("redis is disabled in configuration")
+		return
+	}
+
+	opts := &redis.Options{
+		Addr:     c.dbConfig.Host,
+		Username: c.dbConfig.Username,
+		Password: c.dbConfig.Password,
+		DB:       c.dbConfig.Database,
+	}
+
+	c.client = redis.NewClient(opts)
+}
+
+func (c *Connector) lockDown() {
+	if !c.isLocked {
+		if c.client != nil {
+			c.client.Close()
+		}
+		c.client = nil
+		c.isLocked = true
+		c.failedAt = time.Now()
+		log_util.Logger.Warn("redis will be available to retry after " + fmt.Sprintf("%02dm:%02ds", int(c.dbConfig.CacheRetryLockTime.Minutes()), int(c.dbConfig.CacheRetryLockTime.Seconds())%60))
+	}
+}
+
+func (c *Connector) GetClient(ctx context.Context) (*redis.Client, error) {
+	if !c.isEnabled {
+		return nil, errors.New("redis is disabled")
+	}
+
+	if c.isLocked {
+		if time.Now().Sub(c.failedAt) > c.dbConfig.CacheRetryLockTime {
+			c.isLocked = false
+			c.initializeClient() // Attempt re-initialization if needed
+		} else {
+			x := c.dbConfig.CacheRetryLockTime - time.Now().Sub(c.failedAt)
+			log_util.Logger.Debug("redis is temporarily locked due to previous errors ||remain::" + fmt.Sprintf("%02dm:%02ds", int(x.Minutes()), int(x.Seconds())%60))
+		}
 	}
 
 	if c.client != nil {
-		// Check the connection
 		if err := c.client.Ping(ctx).Err(); err != nil {
-			c.error = err
-			c.client = nil
+			log_util.Logger.Warn("redis ping failed::" + err.Error())
+			c.lockDown()
+			return nil, errors.New("failed to connect to redis")
 		}
-	}
-
-	if c.error != nil {
-		if c.isLockedToRetry {
-			if time.Now().Sub(c.failedAt) > c.dbConfig.CacheRetryLockTime {
-				c.isLockedToRetry = false
-				c.once.Reset()
-			} else {
-				x := c.dbConfig.CacheRetryLockTime - time.Now().Sub(c.failedAt)
-				log_util.Logger.Debug("redis cache will retry to connect in " + fmt.Sprintf("%02dm:%02ds", int(x.Minutes()), int(x.Seconds())%60))
-			}
-		} else {
-			log_util.Logger.Debug("fail to connect redis cache (will retry to connect after " + fmt.Sprintf("%02dm:%02ds", int(c.dbConfig.CacheRetryLockTime.Minutes()), int(c.dbConfig.CacheRetryLockTime.Seconds())%60) + ") ::" + c.error.Error())
-			c.failedAt = time.Now()
-			c.isLockedToRetry = true
-		}
-	}
-
-	return c.client, c.error
-}
-
-func (c *Connector) GetDb(ctx context.Context) (*redis.Client, error) {
-	//check the client again, recreate if fail
-	if _, err := connector.verifyAndGetClient(ctx); err != nil {
-		return nil, err
-	}
-
-	if c.client == nil {
+	} else {
 		return nil, errors.New("redis client is nil")
 	}
 
